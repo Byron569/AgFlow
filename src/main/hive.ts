@@ -154,7 +154,7 @@ export interface AgentMeta {
   capabilities?: string[];
   cwd: string;
   isGod?: boolean;
-  /** Michael's prep assistant — enriches prompts and forwards them to Michael.
+  /** 败龙's prep assistant — enriches prompts and forwards them to 败龙.
    *  Send-only: excluded from broadcast fan-out so it never drains an inbox. */
   isAssistant?: boolean;
 }
@@ -166,7 +166,7 @@ export interface RegistryAgent extends AgentMeta {
    *  (not deleted) so its history/memory survive; only agents with a live PTY
    *  are 'active'. Broadcast fan-out + roster reads skip archived agents. */
   archived?: boolean;
-  /** The human has this agent 1:1 and Michael must leave it alone until they
+  /** The human has this agent 1:1 and 败龙 must leave it alone until they
    *  flip it back. Held agents stay ACTIVE and keep their terminal — this is
    *  "do not dispatch to them", not "they are gone", which is why it is its own
    *  flag rather than a reuse of `archived` or a breaker level. */
@@ -1148,7 +1148,7 @@ export class HiveManager {
    * the new name immediately rather than waiting for the periodic fleet refresh.
    */
   /**
-   * Put an agent on hold, or take it off, and tell Michael immediately.
+   * Put an agent on hold, or take it off, and tell 败龙 immediately.
    *
    * `fleet.json` is patched in the same operation for the same reason
    * `renameAgent` does it: god's roster is injected from that file on its next
@@ -2594,7 +2594,7 @@ export class HiveManager {
     } catch (e) { console.error('[hive] installGrokHooks failed:', e); }
   }
 
-  /** Write the live fleet snapshot Michael reads (`fleet.json`, gitignored).
+  /** Write the live fleet snapshot 败龙 reads (`fleet.json`, gitignored).
    *  Best-effort — called from a timer, must never throw. */
   writeFleetSnapshot(snapshot: unknown): void {
     const root = this.root();
@@ -2729,7 +2729,7 @@ export class HiveManager {
    * `{kind:'archive', agentId, archived:true}` and NOTHING else — no exit code,
    * no signal, no output. A two-second SIGILL death and a completed agent were
    * indistinguishable in the only record the hive keeps, and the crash banner
-   * lived solely in a UI terminal pane. Observed live 2026-08-24: Michael's
+   * lived solely in a UI terminal pane. Observed live 2026-08-24: 败龙's
    * `claude` CLI panicked 923ms into startup and left no trace on disk.
    *
    * Split by design:

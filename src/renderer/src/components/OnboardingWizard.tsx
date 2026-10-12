@@ -109,7 +109,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
   const [busy, setBusy] = useState(false);
 
   // Which engine CLIs are actually on this machine. The picker used to record the
-  // choice blind; the first check happened when Michael spawned, and for a
+  // choice blind; the first check happened when 败龙 spawned, and for a
   // provider with no installer that meant a first run where nothing ever booted.
   // `undefined` = probe not back yet (or failed): rows show no badge and nothing
   // is blocked, because a broken probe must not lock a new user out.
@@ -498,7 +498,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       </label>
                     );
                   })}
-                  {/* Engines a WORKER can run but Michael cannot (issue #355): shown
+                  {/* Engines a WORKER can run but 败龙 cannot (issue #355): shown
                       disabled instead of hidden, so "Copilot is missing" reads as the
                       real constraint — no inbox drain path — not as "unsupported". */}
                   {onboardingEngineChoices().workersOnly.map((p) => (
@@ -769,7 +769,7 @@ export function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
                       }
                       // Same idea for the engine: refuse here, with the reason on
                       // screen, instead of letting a pick that cannot boot through
-                      // to a Michael that never starts.
+                      // to a 败龙 that never starts.
                       if (step === 'orchestrator' && engineBlocked) {
                         setError(t('onboarding.errEngineNotInstalled', { label: providerPreset(godProvider).label }));
                         return;

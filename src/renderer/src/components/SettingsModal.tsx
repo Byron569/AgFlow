@@ -492,8 +492,8 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   // --- Free Flow (voice dictation → message queue) ---
   const setFreeflowEnabledStore = useStore((s) => s.setFreeflowEnabled);
   const setHasGroqKeyStore = useStore((s) => s.setHasGroqKey);
-  // Talk (Realtime Michael) is gated on the OpenAI key — read the live presence
-  // boolean so the Realtime Michael section can show its enabled/disabled status.
+  // Talk (Realtime 败龙) is gated on the OpenAI key — read the live presence
+  // boolean so the Realtime 败龙 section can show its enabled/disabled status.
   const hasOpenAiKey = useStore((s) => s.hasOpenAiKey);
   // Voice-tab entry for the SAME broker slot Agents & Models writes (apikey:openai).
   // Mirroring presence into the store on save is what makes the Talk button light up
@@ -1868,7 +1868,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                     </>
                   )}
 
-                  {/* VOICE — Free Flow dictation + Realtime Michael (v0.3.4: its own tab) */}
+                  {/* VOICE — Free Flow dictation + Realtime 败龙 (v0.3.4: its own tab) */}
                   {activeSection === 'Voice' && (
                     <>
                       {/* Free Flow (voice dictation) */}
@@ -1945,7 +1945,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
 
                       <div style={sectionRule} />
 
-                      {/* Realtime Michael — voice device selection (rt-8) */}
+                      {/* Realtime 败龙 — voice device selection (rt-8) */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={sectionHeadTight}>
                           {t('settings.voice.realtime')}

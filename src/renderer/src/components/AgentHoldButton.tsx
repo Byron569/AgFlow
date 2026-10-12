@@ -4,7 +4,7 @@ import { Icon } from './Icon';
 import { useStore } from '@/store/store';
 
 /**
- * 1:1 — "I have this agent, Michael stop sending it work."
+ * 1:1 — "I have this agent, 败龙 stop sending it work."
  *
  * Lives in `AgentControlStrip` beside "block tools" and "stop after this step",
  * so it is present in both sidebar and focus mode. It was briefly in the title
@@ -18,7 +18,7 @@ import { useStore } from '@/store/store';
  * step" is in fact the worst thing to reach for in a 1:1, because it stops the
  * agent you wanted to talk to.
  *
- * Never rendered for Michael himself: telling the orchestrator to stop routing
+ * Never rendered for 败龙 himself: telling the orchestrator to stop routing
  * work to itself is not a state worth having.
  */
 export function AgentHoldButton({ agentId }: { agentId: string }) {
@@ -63,7 +63,7 @@ export function AgentHoldButton({ agentId }: { agentId: string }) {
           .then(() => window.cth.hiveSetAgentHold?.(agentId, !on)
             ?? Promise.reject(new Error('重启应用：该构建的 preload 还不支持一对一控制')))
           // Mirror locally only after main confirms the write. Flipping
-          // optimistically would show a hold Michael never heard about.
+          // optimistically would show a hold 败龙 never heard about.
           .then((r) => {
             if (r?.ok) { setErr(null); useStore.getState().updateAgent(agentId, { onHold: !on }); }
             else setErr(r?.error ?? '无法设置一对一');

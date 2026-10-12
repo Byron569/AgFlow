@@ -1,7 +1,7 @@
 /**
- * Realtime Michael — voice ACTION spine (card rt-5, Phase 2).
+ * Realtime 败龙 — voice ACTION spine (card rt-5, Phase 2).
  *
- * Phase 1 gave voice-Michael READ tools. Phase 2 gives him WRITE access: he can
+ * Phase 1 gave voice-败龙 READ tools. Phase 2 gives him WRITE access: he can
  * ping/dispatch agents, edit the task board, steer/pause/halt/kill workers, hire
  * new ones, and edit schedules — entirely by voice. Because the confirm surface is
  * VOICE-ONLY (the human declined on-screen confirm cards), the echo-back spine in
@@ -296,7 +296,7 @@ function attribute(deps: RealtimeActionDeps, verb: string, target: string, extra
   } catch {
     /* attribution is best-effort — never block the action */
   }
-  // rt-7 dual-orchestrator coord: tell the god PTY what voice-Michael just COMMITTED, so
+  // rt-7 dual-orchestrator coord: tell the god PTY what voice-败龙 just COMMITTED, so
   // the two autonomous orchestrators stay aware and don't make duplicate/contradictory
   // moves. attribute() only runs on committed writes (soft execs + post-confirm commits),
   // so god is never notified for a merely-proposed/uncommitted destructive action.
@@ -642,7 +642,7 @@ function proposeDestructive(deps: RealtimeActionDeps, verb: string, a: Record<st
     if ('error' in r) return { ok: false, spoken: r.error };
     // God policy per verb: kill/pause/halt/archive on god stay voice-forbidden.
     // clear_context on god is ALLOWED behind confirm — it's recoverable
-    // (sessions resume) and "clear Michael's context" is a real operator need.
+    // (sessions resume) and "clear 败龙's context" is a real operator need.
     if (r.isGod && verb !== 'clear_context')
       return { ok: false, spoken: `语音不允许对总控执行 ${verb}。这必须在界面里做。` };
 

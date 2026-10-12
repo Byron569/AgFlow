@@ -25,7 +25,7 @@ import { LEGACY_GOD_NAME, type LegacyNameApplyResult, type LegacyNameScan } from
 
 /** 单文件读上限——病态大文件跳过（正式数据都在 KB 级）。 */
 const MAX_SCAN_BYTES = 4 * 1024 * 1024;
-/** 旧名的词边界匹配源串。大小写敏感：旧默认名的正式写法就是 'Michael'，
+/** 旧名的词边界匹配源串。大小写敏感：旧默认名的正式写法就是 '败龙'，
  *  而 'michael-voice' 这类小写机器名不受影响。 */
 const LEGACY_NAME_RE = `\\b${LEGACY_GOD_NAME}\\b`;
 
@@ -88,6 +88,31 @@ function writeAtomic(p: string, content: string): void {
     try { rmSync(tmp, { force: true }); } catch { /* tmp 是一次性文件 */ }
     throw e;
   }
+}
+
+/**
+ * 收口编排：总控仍是旧默认名时先改名（`renameGod` 由调用方注入——IPC 层传
+ * `hive.renameAgent`），再替换文本。
+ *
+ * 手动入口（设置页「扫描 → 确认」）与启动自动收口共用这一份：存量安装的
+ * registry 里总控名会一直是旧默认名（改名通道只认显式改名，不会跟随新默认
+ * 值），不自动收口的话设置面板 / 楼层卡片会一直显示旧名。
+ */
+export function cleanupLegacyNames(
+  home: string | null | undefined,
+  renameGod: () => { ok: boolean; error?: string }
+): LegacyNameApplyResult {
+  if (!home) return { ok: false, error: '尚未设置蜂巢工作区' };
+  const scan = scanLegacyNames(home);
+  let godRenamed = false;
+  if (scan.godOnLegacyDefault) {
+    const res = renameGod();
+    if (!res.ok) return { ok: false, error: res.error ?? '改总控名失败，未做任何替换' };
+    godRenamed = true;
+  }
+  // replacementTarget 在 godOnLegacyDefault 时就是改名目标（新默认名），
+  // 与手动入口此前逐字一致。
+  return { ...applyLegacyNameMigration(home, scan.replacementTarget), godRenamed };
 }
 
 /** 只读扫描：返回命中清单，不写盘。 */

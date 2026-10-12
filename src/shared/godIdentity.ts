@@ -8,7 +8,7 @@ export const DEFAULT_GOD_NAME = '败龙';
  * `renameAgent()` (`store.ts`) persists a rename straight into `registry.json`
  * via `hive.ts`'s `renameAgent()` — but the god-spawn effect used to rebuild
  * god's agent object from scratch with `name: DEFAULT_GOD_NAME` hardcoded in
- * three places, so a custom name reverted to "Michael" on every app restart
+ * three places, so a custom name reverted to "败龙" on every app restart
  * even though the registry still had it right. Reading the persisted name
  * back here (instead of hardcoding the default) is what keeps a rename from
  * reverting. Falls back to the default only when nothing has been persisted

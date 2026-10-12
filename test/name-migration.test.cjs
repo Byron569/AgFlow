@@ -10,7 +10,7 @@ const { tmpdir } = require('node:os');
 const { join } = require('node:path');
 const loadTs = require('./load-ts.cjs');
 
-const { scanLegacyNames, applyLegacyNameMigration } = loadTs('src/main/nameMigration.ts');
+const { scanLegacyNames, applyLegacyNameMigration, cleanupLegacyNames } = loadTs('src/main/nameMigration.ts');
 const { LEGACY_GOD_NAME, LEGACY_CHARACTER_KEYS } = loadTs('src/shared/legacyNames.ts');
 
 function seedHive({ godName = 'Michael' } = {}) {
@@ -107,6 +107,55 @@ test('with nothing to migrate, apply is a no-op and creates no backup', () => {
   } finally { cleanup(home); }
 });
 
+test('cleanup renames a legacy-default god through the injected channel, then sweeps text', () => {
+  const home = seedHive();
+  try {
+    let renames = 0;
+    const res = cleanupLegacyNames(home, () => {
+      renames += 1;
+      // 模拟 hive.renameAgent：registry 是唯一真相源。
+      const reg = JSON.parse(readFileSync(join(home, 'registry.json'), 'utf8'));
+      reg.agents[reg.godId].name = '败龙';
+      writeFileSync(join(home, 'registry.json'), JSON.stringify(reg));
+      return { ok: true };
+    });
+    assert.equal(renames, 1, '旧默认名必须先经改名通道改名');
+    assert.equal(res.ok, true);
+    assert.equal(res.godRenamed, true);
+    assert.equal(res.filesChanged, 6);
+    assert.match(readFileSync(join(home, 'board.md'), 'utf8'), /败龙 assigned/);
+    // 幂等：再跑一次不重复改名、无命中则零改动零备份。
+    let again = 0;
+    const res2 = cleanupLegacyNames(home, () => { again += 1; return { ok: true }; });
+    assert.equal(again, 0);
+    assert.equal(res2.godRenamed, false);
+    assert.equal(res2.filesChanged, 0);
+    assert.equal(res2.backupDir, null);
+  } finally { cleanup(home); }
+});
+
+test('cleanup never forces a rename when the god carries a custom name', () => {
+  const home = seedHive({ godName: '老王' });
+  try {
+    let renames = 0;
+    const res = cleanupLegacyNames(home, () => { renames += 1; return { ok: true }; });
+    assert.equal(renames, 0, '自定义名不是旧默认名，绝不能被收口改写');
+    assert.equal(res.godRenamed, false);
+    assert.match(readFileSync(join(home, 'agents/jim-1/memory.md'), 'utf8'), /老王 prefers/);
+  } finally { cleanup(home); }
+});
+
+test('cleanup stops before touching text when the rename channel fails', () => {
+  const home = seedHive();
+  try {
+    const res = cleanupLegacyNames(home, () => ({ ok: false, error: '找不到总控' }));
+    assert.equal(res.ok, false);
+    assert.match(res.error, /找不到总控/);
+    assert.match(readFileSync(join(home, 'board.md'), 'utf8'), /Michael assigned/);
+    assert.ok(!existsSync(join(home, 'backups')), '改名失败时不得写入任何文件');
+  } finally { cleanup(home); }
+});
+
 test('legacy cast names still resolve to the same sprite look (P0-D-2 compat map)', () => {
   assert.equal(Object.keys(LEGACY_CHARACTER_KEYS).length, 15);
   assert.equal(LEGACY_CHARACTER_KEYS.michael, 'lead');
@@ -122,6 +171,17 @@ test('wiring: IPC, preload, and Settings all expose the migration', () => {
   assert.match(index, /ipcMain\.handle\('legacyNames:scan'/);
   assert.match(index, /ipcMain\.handle\('legacyNames:apply'/);
   assert.match(index, /hive\.renameAgent\(godId, DEFAULT_GOD_NAME\)/, '旧默认名必须经 hive.renameAgent 改名');
+  // 启动自动收口：存量安装的 registry 仍是旧默认名时，设置面板会一直显示旧名。
+  assert.match(
+    index,
+    /cleanupLegacyNames\(hive\.root\(\), renameLegacyGod\)/,
+    '启动必须自动收口旧默认名（真机验证引出）'
+  );
+  // 根目录口径：迁移模块要的是 hive 根（<harnessHome>/hive），不是 harnessHome——
+  // 传错一层会让扫描永远 0 命中（真机上手动入口因此空转过）。
+  assert.match(index, /legacyNames:scan', \(\) => scanLegacyNames\(hive\.root\(\)\)/);
+  assert.doesNotMatch(index, /scanLegacyNames\(readConfig\(\)\.harnessHome\)/);
+  assert.doesNotMatch(index, /cleanupLegacyNames\(readConfig\(\)\.harnessHome/);
 
   const preload = readFileSync('src/preload/index.ts', 'utf8');
   assert.match(preload, /ipcRenderer\.invoke\('legacyNames:scan'\)/);

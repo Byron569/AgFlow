@@ -67,7 +67,7 @@ import { inboxNudgeText } from '../shared/hiveNudge';
 import { resolveGodName, DEFAULT_GOD_NAME } from '../shared/godIdentity';
 import { fetchHireManifest, readHireManifestFiles } from './hire';
 import { readAgentTemplates, saveAgentTemplate, deleteAgentTemplate } from './agentTemplateStore';
-import { scanLegacyNames, applyLegacyNameMigration } from './nameMigration';
+import { scanLegacyNames, cleanupLegacyNames } from './nameMigration';
 import { importPortableItems, scanPortableSource } from './portableData';
 import { adaptOpencodeArgs, probeOpencodeCli } from './opencodeCli';
 import { listOllamaModels, ollamaRootFromBaseUrl } from '../shared/ollamaScan';
@@ -334,7 +334,7 @@ const breaker = new CircuitBreaker(() => {
   return { ...(c.circuitBreaker ?? {}), costCapUsd: c.costCapUsd, costCapTokens: c.costCapTokens, agentTokenCaps: c.agentTokenCaps };
 });
 // Always-on beats (decoupled from the optional heartbeat): the live fleet snapshot
-// Michael reads + the breaker beat, so guardrails + monitoring work even when the
+// 败龙 reads + the breaker beat, so guardrails + monitoring work even when the
 // heartbeat mission is disabled (it ships off).
 let fleetTimer: ReturnType<typeof setInterval> | null = null;
 let breakerBeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -1340,7 +1340,7 @@ function runBreakerBeat(progressWindowMs: number): void {
  *  it cannot answer "what has this agent cost us". See costLifetime.ts. */
 const costTotals = new CostLedgerTotals();
 
-/** Build + write the live fleet snapshot Michael reads (`<hive>/fleet.json`).
+/** Build + write the live fleet snapshot 败龙 reads (`<hive>/fleet.json`).
  *  Always-on (independent of the heartbeat) since `claude agents` can't see the
  *  hive's sibling sessions. PII-free; never throws (called from a timer). */
 function writeFleetSnapshot(): void {
@@ -1439,7 +1439,7 @@ function liveWebContents(): Electron.WebContents | null {
   return null;
 }
 
-// ─── Slack webhook server (Slack message → Michael's queue) ──────────────────
+// ─── Slack webhook server (Slack message → 败龙's queue) ──────────────────
 /** The running Slack ingestion server, or null when disabled/stopped. */
 let slackServer: SlackWebhookServer | null = null;
 /** The loopback-only reply endpoint (lets the bundled helper post back to Slack
@@ -2363,7 +2363,10 @@ ipcMain.handle('templates:delete', (_e, id: unknown) =>
 // 各智能体的 memory 与 inbox+outbox）。迁移要求没有终端在运行：运行中的智能体
 // 会持续写这些文件，边写边替换会互相打架。总控仍是旧默认名时，先经
 // hive.renameAgent 改名（registry/fleet/log/commit 一并同步），再替换文本。
-ipcMain.handle('legacyNames:scan', () => scanLegacyNames(readConfig().harnessHome));
+// 注意根目录口径：迁移模块要的是 **hive 根**（`<harnessHome>/hive`，
+// registry/board/agents 都在它下面），传 harnessHome 会扫到空目录（2026-10-12
+// 真机验证引出——此前手动入口因此在真机上永远 0 命中）。
+ipcMain.handle('legacyNames:scan', () => scanLegacyNames(hive.root()));
 
 // IPC: 本机 Ollama 模型发现（P1 完整化）——主进程执行 fetch，避开渲染端的
 // CORS/CSP；端点取用户的 providerBaseUrls.ollama 覆盖，否则用国产注册表默认值。
@@ -2373,21 +2376,17 @@ ipcMain.handle('ollama:listModels', () => {
     ?? 'http://127.0.0.1:11434/v1';
   return listOllamaModels(ollamaRootFromBaseUrl(base));
 });
+/** 旧默认名改名的注入点：IPC 手动入口与启动自动收口共用同一条通道
+ *  （registry/fleet/log/commit 一并同步）。 */
+function renameLegacyGod(): { ok: boolean; error?: string } {
+  const godId = hive.registry().godId;
+  return godId ? hive.renameAgent(godId, DEFAULT_GOD_NAME) : { ok: false, error: '找不到总控' };
+}
+
 ipcMain.handle('legacyNames:apply', () => {
   const live = ptyManager.list().length;
   if (live > 0) return { ok: false, error: `还有 ${live} 个终端在运行——请先全部关闭再迁移` };
-  const home = readConfig().harnessHome;
-  if (!home) return { ok: false, error: '尚未设置蜂巢工作区' };
-  const scan = scanLegacyNames(home);
-  let godRenamed = false;
-  if (scan.godOnLegacyDefault) {
-    const godId = hive.registry().godId;
-    const res = godId ? hive.renameAgent(godId, DEFAULT_GOD_NAME) : { ok: false, error: '找不到总控' };
-    if (!res.ok) return { ok: false, error: res.error ?? '改总控名失败，未做任何替换' };
-    godRenamed = true;
-  }
-  const applied = applyLegacyNameMigration(home, godRenamed ? DEFAULT_GOD_NAME : scan.replacementTarget);
-  return { ...applied, godRenamed };
+  return cleanupLegacyNames(hive.root(), renameLegacyGod);
 });
 
 // ─── IPC: 便携数据（P2 迁移向导）────────────────────────────────────────────
@@ -2519,7 +2518,7 @@ function createWindow(opts: { floor?: boolean } = {}): BrowserWindow {
   // Permission gate for the renderer (our own trusted, local content). The only
   // permission we constrain is microphone capture: it's allowed ONLY while a mic
   // feature is actually live — Free Flow dictation (`freeflowEnabled`) OR a
-  // Realtime Michael voice session (`realtimeVoiceEnabled`, flipped on by the
+  // Realtime 败龙 voice session (`realtimeVoiceEnabled`, flipped on by the
   // session at start() before getUserMedia, off at stop()). With both flags off,
   // there's zero mic access even at the Electron layer. We deliberately do NOT
   // gate on OpenAI-key presence: that key (`apikey:openai`) is shared with the CLI
@@ -3043,7 +3042,7 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
         : cfg.defaultModel ?? modelForRole(opts.hive, cfg);
       if (m) args.push('--model', m);
     }
-    // Name the Remote Control session after the agent (Michael, Jim, Dev1…) so it
+    // Name the Remote Control session after the agent (败龙, Jim, Dev1…) so it
     // is identifiable in claude.ai / the mobile app. Otherwise Claude defaults the
     // prefix to the machine hostname (e.g. "vyapaks-macbook-pro-…"), which is
     // opaque when several agents run at once — especially with remoteControlAtStartup
@@ -4055,7 +4054,7 @@ ipcMain.handle('app:resetAll', () => {
   try { persist.close(); } catch (e) { console.error('[reset] persist.close:', e); }
   try { ptyManager.killAll(); } catch (e) { console.error('[reset] killAll:', e); }
   try { hive.removeExposedCodexData(); } catch (e) { console.error('[reset] removeExposedCodexData:', e); }
-  // Erase the hive (Michael's + every agent's memory, inboxes, tasks, board,
+  // Erase the hive (败龙's + every agent's memory, inboxes, tasks, board,
   // git history) and the semantic-memory palace. Only these harness-created
   // subdirs are removed — never the user's whole harnessHome folder.
   for (const dir of [hive.root(), memory.palacePath()]) {
@@ -4094,12 +4093,12 @@ ipcMain.handle('hive:agentContext', (_evt, agentId: unknown) => {
 });
 
 // A consolidated, NON-SENSITIVE per-agent directory for the voice read-layer
-// (Realtime Michael's get_agent_detail / list_agents). One read that joins
+// (Realtime 败龙's get_agent_detail / list_agents). One read that joins
 // everything the office-floor sidebar + telemetry know per agent: the registry
 // record (name/role/provider/cwd/status/archived/isGod/isAssistant/sessionId/
 // cwdValid), live token + breaker + last-tool telemetry, and the current context
 // window fill. Includes ARCHIVED agents (unlike the heartbeat's fleet.json, which
-// is live-only) so Michael can speak to inactive agents — their cwd and memory
+// is live-only) so 败龙 can speak to inactive agents — their cwd and memory
 // stay reachable. PII-free: no secrets, env, or API keys ever leave main; cost is
 // carried as tokens (+ a usd field the voice layer deliberately never speaks).
 ipcMain.handle('hive:agentDirectory', () => {
@@ -4625,23 +4624,23 @@ ipcMain.handle('freeflow:transcribe', async (_evt, arg: unknown) => {
   return out;
 });
 
-// ─── IPC: Realtime Michael (voice orchestrator — ephemeral token mint, rt-1) ──
+// ─── IPC: Realtime 败龙 (voice orchestrator — ephemeral token mint, rt-1) ──
 // MAIN owns the BYOK OpenAI key (encrypted broker, apikey:openai) and mints a
 // short-lived EPHEMERAL client secret; the real key never crosses IPC. All wiring
 // lives in ./realtime so this stays a single registration line.
 registerRealtimeIpc();
 
-// ─── IPC: Realtime Michael voice ACTIONS (rt-5, Phase 2) ─────────────────────
+// ─── IPC: Realtime 败龙 voice ACTIONS (rt-5, Phase 2) ─────────────────────
 // Thin adapters over the SAME main fns the god PTY already uses. ALL of the safety
 // spine — soft-vs-destructive tiering, the two-step verbal echo-back confirm, the
 // distinct-token rule, the hard allowlist (kill-god / mass-ops forbidden), and the
 // michael-voice attribution — lives in ./realtimeActions. This site only injects
 // the existing functions; it adds NO new orchestration logic.
-// ─── IPC: Realtime Michael completion watcher (rt-12, Phase 2) ───────────────
+// ─── IPC: Realtime 败龙 completion watcher (rt-12, Phase 2) ───────────────
 // Jim's net-new engine (realtimeCompletionWatcher.ts) detects a voice-dispatched
 // task finishing (card→done OR a done-reply in michael-voice's inbox) and EMITS it;
 // I own the seam — inject the hive read deps, push completions to the live session
-// (so Michael speaks them unprompted), and bridge waitFor / queue-drain over IPC.
+// (so 败龙 speaks them unprompted), and bridge waitFor / queue-drain over IPC.
 const completionWatcher = initCompletionWatcher({
   readTasks: () => { const t = hive.tasks() as { tasks?: TaskCard[] }; return Array.isArray(t?.tasks) ? t.tasks : []; },
   // Voice dispatches go out as from:michael-voice, so assignee done-replies land here.
@@ -5470,7 +5469,7 @@ function runWorkerWakeBeat(): void {
 }
 
 /** (Re)arm the always-on beats (decoupled from the optional heartbeat): the live
- *  fleet snapshot Michael reads (~8s) + the breaker/cost-ledger beat (~30s).
+ *  fleet snapshot 败龙 reads (~8s) + the breaker/cost-ledger beat (~30s).
  *  Guarded (clear-then-set) so a re-bootstrap (changeHome recovery) OR a
  *  powerMonitor resume can't stack duplicate timers — these are setInterval
  *  handles that freeze during true system sleep and must be re-armed on wake. */
@@ -5572,7 +5571,7 @@ function onSystemResume(reason: string): void {
 }
 
 app.whenReady().then(() => {
-  // Realtime Michael mic-gate hygiene (rt-8 / Pam rt-10 nit): the voice session
+  // Realtime 败龙 mic-gate hygiene (rt-8 / Pam rt-10 nit): the voice session
   // opens the mic permission gate by persisting realtimeVoiceEnabled=true and
   // closes it on disconnect — but a hard crash/reload mid-session skips that
   // teardown, leaving the flag stuck true so the gate would boot PRE-OPEN with no
@@ -5635,6 +5634,22 @@ app.whenReady().then(() => {
   }
   // Bootstrap the hive (if harnessHome is configured) and start the message router.
   bootstrapHiveServices();
+  // D-1 启动自动收口：存量安装的 registry 里，总控名可能仍是改名前的旧默认名
+  // （改名通道只认显式改名，不会跟随新默认值），而设置面板 / 楼层卡片直接照读
+  // registry —— 不自动收口就会一直显示旧名（2026-10-12 真机验证引出）。此时还没
+  // 有任何终端在跑，直接复用与设置页手动入口同一套收口（改名 + 文本迁移，带备份）。
+  // 失败只记日志，绝不阻塞启动。
+  try {
+    const res = cleanupLegacyNames(hive.root(), renameLegacyGod);
+    if (res.godRenamed || (res.filesChanged ?? 0) > 0) {
+      console.log(
+        `[hive] legacy name cleanup: godRenamed=${!!res.godRenamed} files=${res.filesChanged ?? 0} hits=${res.totalReplaced ?? 0}`
+      );
+    }
+    if (!res.ok) console.error('[hive] legacy name cleanup failed:', res.error);
+  } catch (e) {
+    console.error('[hive] legacy name cleanup threw:', e);
+  }
   // Survive sleep/lock. macOS freezes libuv timers during true system sleep, so a
   // locked/idle/slept Mac stops firing schedules and can wedge PTYs. On wake we
   // re-arm the scheduler (catching up missed missions ONCE) + beats + keep-awake,

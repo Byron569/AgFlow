@@ -273,7 +273,7 @@ function passesContextPressure(a: Agent, rule: ContextRule): boolean {
 
 /**
  * The renderer-side glue for the hive:
- *   1. spawns the god agent into Michael's room when none is running,
+ *   1. spawns the god agent into 败龙's room when none is running,
  *   2. drives avatar state from real Claude Code hook events, and
  *   3. wakes idle agents that have unread inbox messages so collaboration
  *      doesn't stall while an agent sits at its prompt.
@@ -287,7 +287,7 @@ export function useHive(config: HarnessConfig | null): void {
   // held, but an agent may set its own `id` in the outbox JSON and the hive keeps
   // it verbatim (hive.ts normalize: `partial.id ?? ...`). One such id in god's
   // inbox — `dev15-progress-canvas-v4` — sorts above EVERY `2026-*` timestamp and
-  // never drains, so the "newest" id was frozen on it: Michael was nudged once per
+  // never drains, so the "newest" id was frozen on it: 败龙 was nudged once per
   // app launch and then never again, however much real mail piled up behind it.
   // Tracking the ids we have seen has no such ordering assumption, and it keeps
   // the property the high-water mark was there for: draining removes ids from the
@@ -317,7 +317,7 @@ export function useHive(config: HarnessConfig | null): void {
   const inFlightSends = useRef<Set<string>>(new Set());
   const sendFailures = useRef<Record<string, number>>({});
   // In-flight spawn guard so a re-render / StrictMode double-mount can't spawn
-  // Michael twice (the window between the listPtys check and spawnPty is racy).
+  // 败龙 twice (the window between the listPtys check and spawnPty is racy).
   const godSpawning = useRef(false);
   // Per-agent timestamp until which auto-typers (inbox-wake #3, queue-drain #4)
   // must leave the agent alone — set while its boot sequence is typing so nothing
@@ -332,7 +332,7 @@ export function useHive(config: HarnessConfig | null): void {
   // mid-revive) within REVIVE_DEBOUNCE_MS is skipped. Set BEFORE the async spawn
   // so a re-entrant event can't race a second respawn for the same id.
   const reviving = useRef<Record<string, number>>({});
-  // Reactive so the assistant bootstrap (effect #1b) re-runs once Michael is ready.
+  // Reactive so the assistant bootstrap (effect #1b) re-runs once 败龙 is ready.
   const godStatus = useStore((s) => s.godStatus);
   // Per-pty `lastOutputAt`, refreshed by the quiescence sweep (#2e) and read by
   // the queue drain (#4) so it can tell a terminal parked at its prompt from one
@@ -417,7 +417,7 @@ export function useHive(config: HarnessConfig | null): void {
         args,
         cols: 100,
         rows: 30,
-        // Restore Michael's prior conversation across an app restart. His session
+        // Restore 败龙's prior conversation across an app restart. His session
         // id lives in the hive registry (recorded from his hooks), so the main
         // process attaches `--resume <id>`; a missing transcript falls back to a
         // fresh session. Without this the most important context on the floor —
@@ -450,15 +450,15 @@ export function useHive(config: HarnessConfig | null): void {
       useStore.getState().addAgent(god);
       useStore.getState().setGodStatus('ready');
 
-      // Kick Michael off once his TUI is up. Always re-enable remote control so
+      // Kick 败龙 off once his TUI is up. Always re-enable remote control so
       // the human can approve permission prompts from their phone (best-effort — a
       // failed/unknown slash command just prints to his terminal and is harmless).
       // Then, ONLY on a genuinely fresh spawn, hand him the orientation prompt —
-      // a RESUMED Michael already has his full context and must not be re-oriented
+      // a RESUMED 败龙 already has his full context and must not be re-oriented
       // mid-thread (that would reset the floor's situational awareness). Both go
       // through the per-pty submit chain, so they're strictly sequential and can't
       // jam together; the boot-grace window keeps the inbox-wake/drain loops off
-      // Michael until he's settled. The live-PTY branch above skips this entirely.
+      // 败龙 until he's settled. The live-PTY branch above skips this entirely.
       const resumedGod = res.resumed === true;
       bootGraceUntil.current[GOD_ID] = Date.now() + BOOT_GRACE_MS;
       void (async () => {
@@ -533,7 +533,7 @@ export function useHive(config: HarnessConfig | null): void {
         //   1. it genuinely needs the human (a permission / approval prompt), or
         //   2. the prompt has merely gone idle ("Claude is waiting for your
         //      input") — i.e. the agent answered and has nothing queued.
-        // Only (1) is a real "needs you". Treating (2) as blocked made Michael
+        // Only (1) is a real "needs you". Treating (2) as blocked made 败龙
         // march to the door with a red "!" right after finishing, so detect the
         // idle case and let him linger on the floor instead.
         const msg = (e.message ?? '').toLowerCase();
@@ -963,9 +963,9 @@ export function useHive(config: HarnessConfig | null): void {
     return () => { unsub(); if (debounce) clearTimeout(debounce); clearInterval(iv); };
   }, [config?.onboardingComplete]);
 
-  // 5) Pipe inbound Slack messages into Michael's queue. The main-process Slack
+  // 5) Pipe inbound Slack messages into 败龙's queue. The main-process Slack
   //    webhook server pushes each verified message here via IPC; enqueueing to
-  //    GOD_ID lands it in Michael's queue exactly as if the user had typed it
+  //    GOD_ID lands it in 败龙's queue exactly as if the user had typed it
   //    into the composer — effect #4 above then drains it to his PTY.
   //    We immediately ack in the triggering thread and stash the thread coords
   //    so the office can post its summary back later.

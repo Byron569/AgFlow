@@ -1,5 +1,5 @@
 /**
- * Realtime Michael — renderer voice session (card rt-2, Phase 1 = READ-ONLY voice).
+ * Realtime 败龙 — renderer voice session (card rt-2, Phase 1 = READ-ONLY voice).
  *
  * The voice orchestrator runs IN THE RENDERER over WebRTC, talking speech-to-speech
  * to OpenAI `gpt-realtime-2`. The renderer never holds the real OpenAI key: it asks
@@ -14,7 +14,7 @@
  *
  * Phase 1 is a read-only connect→listen→respond round-trip. The agent runs Kevin's
  * rt-4 READ-ONLY tools (get_fleet_status / get_tasks / get_cost / get_triggers /
- * get_config / get_memory / get_activity) and god's rt-6 "Michael" persona, so the
+ * get_config / get_memory / get_activity) and god's rt-6 "败龙" persona, so the
  * agent_tool_start/agent_tool_end lifecycle fires and the mic goes idle during a tool
  * call and resumes — a Phase-1 acceptance criterion. NO hive action-tools yet (rt-5, held).
  *
@@ -59,7 +59,7 @@ export interface RealtimeMichaelState {
 /** Voices for gpt-realtime-2 (board: Cedar / Marin). god finalizes in rt-6. */
 const REALTIME_VOICE = 'cedar';
 
-/** Warm openers Michael leads with the moment a voice session connects, so he
+/** Warm openers 败龙 leads with the moment a voice session connects, so he
  *  greets the user instead of sitting in silence waiting for them to speak. One
  *  is picked at random per connect so the greeting varies. Hardcoded constants
  *  (never user/external text) — safe to speak verbatim, no sanitization needed. */
@@ -74,7 +74,7 @@ const GREETINGS = [
   '嘿，我听着呢——什么情况？'
 ];
 
-/** Michael's voice persona (rt-6 — the final Phase-1 instructions, authored by god). Michael
+/** 败龙's voice persona (rt-6 — the final Phase-1 instructions, authored by god). 败龙
  *  is READ-ONLY: he reports on the hive via the rt-4 read-tools but takes no actions yet. */
 function voicePersona(godName: string): string {
   return `你是${godName}——一支自主协作的编程智能体蜂巢的总控（god）的语音化身。与你交谈的人是运营蜂巢的人类；把他当作你要汇报的老板。
@@ -126,7 +126,7 @@ const listeners = new Set<() => void>();
 let session: RealtimeSession | null = null;
 /** The mic stream we opened (so we can stop its tracks on teardown). */
 let stream: MediaStream | null = null;
-/** The <audio> sink for Michael's voice. */
+/** The <audio> sink for 败龙's voice. */
 let audioEl: HTMLAudioElement | null = null;
 /** Guards against overlapping connect() calls racing the async mint/connect. */
 let connecting = false;
@@ -331,16 +331,16 @@ export async function connect(): Promise<void> {
     if (state.deviceId) audioConstraints.deviceId = { exact: state.deviceId };
     stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
 
-    // Our own <audio> sink for Michael's voice, routed to the chosen speaker (rt-8).
+    // Our own <audio> sink for 败龙's voice, routed to the chosen speaker (rt-8).
     audioEl = new Audio();
     audioEl.autoplay = true;
     await applyOutputSink(audioEl, state.outputDeviceId);
 
     const transport = new OpenAIRealtimeWebRTC({ mediaStream: stream, audioElement: audioEl });
-    // Warm-start: a short, best-effort hive snapshot so Michael's first answer is grounded
+    // Warm-start: a short, best-effort hive snapshot so 败龙's first answer is grounded
     // without a tool round-trip (rt-4 realtimeSessionSummary). Returns '' on failure / never throws.
     let warmStart = await realtimeSessionSummary().catch(() => '');
-    // rt-12: catch up on completions that finished while no session was open, so Michael
+    // rt-12: catch up on completions that finished while no session was open, so 败龙
     // can mention them as a "since we last talked" warm-start (the closed-session queue).
     try {
       const queued = await window.cth.realtimeDrainCompletions();
@@ -421,14 +421,14 @@ export async function connect(): Promise<void> {
     if (warmStart) {
       injectSilent(`（接通时的楼层快照——仅供定位，细节请调用你的工具：${sanitizeForVoice(warmStart)}）`);
     }
-    // Floor deltas — silent appends that keep Michael's picture live without
+    // Floor deltas — silent appends that keep 败龙's picture live without
     // touching the cached instructions prefix.
     offFloorDelta = window.cth.onRealtimeFloorDelta?.((d) => {
       if (session !== s) return;
       injectSilent(`（楼层动态：${sanitizeForVoice(d.text)}。只在相关时提及——不要打断。）`);
     }) ?? null;
     // rt-12: mark the session live (main now pushes completions instead of queuing) and
-    // subscribe so a detected completion makes Michael speak it unprompted.
+    // subscribe so a detected completion makes 败龙 speak it unprompted.
     void window.cth.realtimeSetSessionLive(true);
     offCompletion = window.cth.onRealtimeCompletion((c) => {
       try {
@@ -459,7 +459,7 @@ export async function connect(): Promise<void> {
       model: mint.sessionConfig.model,
       expiresAt: mint.expiresAt
     });
-    // Open the conversation: have Michael speak a warm greeting as his first turn
+    // Open the conversation: have 败龙 speak a warm greeting as his first turn
     // rather than waiting for the user to talk first. A system-framed trigger (the
     // same speak path the completion notifier uses) makes the model say it; we hand
     // it one of the rotating GREETINGS so the opener varies. Best-effort — if the
@@ -542,7 +542,7 @@ function getSnapshot(): RealtimeMichaelState {
 }
 
 /**
- * React binding for the Realtime Michael voice loop. Returns the current state plus
+ * React binding for the Realtime 败龙 voice loop. Returns the current state plus
  * `connect()` / `disconnect()` / `setDeviceId()`. A single session is shared across the
  * whole renderer, so every consumer sees the same status.
  */
