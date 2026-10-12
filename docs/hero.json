@@ -1,0 +1,9 @@
+{
+  "_comment": "Settings → General hero card. Edited here and fetched by the app at runtime, so plan copy and sponsors change WITHOUT shipping a build. Data only — every field renders as escaped text, never as markup. Unknown fields are ignored; anything malformed falls back to the app's built-in defaults. URLs must be https.",
+  "plan": {
+    "label": "本地",
+    "blurb": "每个智能体都在你自己的机器、你自己的文件夹里运行，使用你自己的密钥。没有席位限制，也不按量计费。"
+  },
+  "sponsor": null,
+  "notice": null
+}
