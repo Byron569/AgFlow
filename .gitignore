@@ -35,3 +35,8 @@ docs/blog-preview-*/
 # Finder duplicate files, e.g. "spec 2.js", "sitemap 2.xml"
 *\ 2.*
 *\ [0-9].*
+
+# 内部工作文档 — 仅本地保留，不推送公开仓库
+/AgFlow-二次开发可行性方案.md
+/AgFlow-开发对话记录.md
+/.trae/documents/
