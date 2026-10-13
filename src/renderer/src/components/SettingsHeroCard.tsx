@@ -3,8 +3,7 @@
  *
  * One card that answers "what is this install, and what can I do about it" —
  * the running version, the plan it is on, and the handful of actions that do not
- * belong to any individual setting below (re-read the release notes, star, back
- * the project).
+ * belong to any individual setting below (report a problem, read the changelog).
  *
  * Its contents come from docs/hero.json IN THIS REPO, fetched at runtime and
  * cached — so plan copy, a sponsor, or a one-line notice can change without
@@ -17,21 +16,18 @@
  * same offline. A sponsor slot with nothing in it renders NOTHING rather than a
  * "your logo here" placeholder.
  *
- * Since 0.4.5 it borrows the release drop's idiom (ink borders, a lilac
- * announcement block, a dark offer band) and carries the v0.5.0 Pro announcement and the
- * Founders' Wall offer, so the one card people see in Settings says the same
- * thing the release modal does. Plan label and blurb still come from hero.json.
+ * Since 0.4.5 it borrows the release drop's idiom (ink borders, feature bands).
+ * 2026-10 改版：Pro 公告块、Founders' Wall 榜单块与「新功能 / 在 GitHub 上标星 /
+ * 加入 Discord」三个入口已按用户要求移除（去商业宣传）。版本标识、方案简述、
+ * 「反馈问题」与「完整更新日志」保留。Plan label and blurb still come from hero.json.
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { PixelButton } from './PixelButton';
-import { Icon } from './Icon';
 import { DEFAULT_HERO, type HeroPayload } from '@shared/heroPayload';
 import { manualDownloadUrl, pendingVersion, reduceStatus, type UpdateStatus } from '@shared/updateState';
 
-const GITHUB_REPO_URL = 'https://github.com/agflow/agflow';
-const FOUNDERS_WALL_URL = 'https://example.invalid/agflow/wall.html';
-const DISCORD_URL = 'https://discord.gg/SEDzP5ZPk5';
+const GITHUB_REPO_URL = 'https://github.com/Byron569/AgFlow';
 
 export function SettingsHeroCard() {
   const { t } = useTranslation();
@@ -69,13 +65,6 @@ export function SettingsHeroCard() {
 
   const PLAN = hero.plan;
   const SPONSOR = hero.sponsor;
-
-  /** Re-show the release notes. UpdateToast owns that surface — it holds the
-   *  last status and the drop renderer — so this asks rather than duplicating
-   *  it, via the same CustomEvent convention App uses for opening Settings. */
-  const showReleaseNotes = () => {
-    window.dispatchEvent(new CustomEvent('cth:show-release-notes'));
-  };
 
   const INK = 'var(--cth-ink-900)';
   const MONO = 'var(--cth-font-mono, monospace)';
@@ -129,58 +118,6 @@ export function SettingsHeroCard() {
           }}>{hero.notice}</div>
         )}
 
-        {/* Pro announcement. Same block the release drop carries. */}
-        <div style={{
-          padding: '12px 14px',
-          background: 'var(--cth-lilac-light)',
-          border: `2px solid ${INK}`
-        }}>
-          <span style={{
-            display: 'inline-block', fontFamily: MONO, fontSize: 9, letterSpacing: '.18em',
-            textTransform: 'uppercase', padding: '2px 7px',
-            background: INK, color: 'var(--cth-paper-100)'
-          }}>{t('settingsHero.announcement')}</span>
-          <div style={{
-            marginTop: 8, fontFamily: MONO, fontSize: 14, fontWeight: 700, color: INK
-          }}>{t('settingsHero.proLaunch')}</div>
-          <div style={{ marginTop: 6, fontSize: 12.5, lineHeight: 1.5, color: 'var(--cth-ink-700)', maxWidth: '64ch' }}>
-            <b style={{ color: INK }}>{t('settingsHero.proCommunityFree')}</b>{' '}
-            {t('settingsHero.proParagraph')}
-          </div>
-        </div>
-
-        {/* Founders' Wall offer. */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
-          padding: '12px 14px',
-          background: INK, color: 'var(--cth-paper-100)',
-          marginTop: 2
-        }}>
-          <div style={{
-            fontFamily: MONO, fontSize: 30, fontWeight: 700, lineHeight: 0.9,
-            letterSpacing: '-.05em', color: 'var(--cth-lemon)', textAlign: 'center', flexShrink: 0
-          }}>
-            5<span style={{
-              display: 'block', fontSize: 8, letterSpacing: '.2em', fontWeight: 500,
-              color: 'var(--cth-paper-100)', opacity: 0.7, marginTop: 5
-            }}>折</span>
-          </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ fontFamily: MONO, fontSize: 12.5, fontWeight: 600 }}>{t('settingsHero.foundersWallTitle')}</div>
-            <div style={{ fontSize: 12, lineHeight: 1.45, opacity: 0.85, marginTop: 2 }}>
-              {t('settingsHero.foundersWallBody')}
-            </div>
-          </div>
-          <PixelButton variant="primary" size="sm" onClick={() => void window.cth.openExternal(FOUNDERS_WALL_URL)}>
-            {t('settingsHero.seeTheWall')}
-          </PixelButton>
-          {PLAN.upgrade && (
-            <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(PLAN.upgrade!.url)}>
-              {PLAN.upgrade.label}
-            </PixelButton>
-          )}
-        </div>
-
         {/* Sponsor — only when there is one. */}
         {SPONSOR && (
           <div style={{
@@ -206,22 +143,6 @@ export function SettingsHeroCard() {
           display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center',
           paddingTop: 12, borderTop: `2px solid ${INK}`
         }}>
-          <PixelButton variant="secondary" size="sm" onClick={showReleaseNotes}>
-            <span title={t('settingsHero.whatsNewTitle')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Icon name="sparkle" /> {t('settingsHero.whatsNew')}
-            </span>
-          </PixelButton>
-          <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(GITHUB_REPO_URL)}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              ⭐ {t('settingsHero.starOnGitHub')}
-            </span>
-          </PixelButton>
-          <PixelButton variant="secondary" size="sm" onClick={() => void window.cth.openExternal(DISCORD_URL)}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              💬 {t('settingsHero.joinDiscord')}
-            </span>
-          </PixelButton>
           <PixelButton
             variant="ghost"
             size="sm"
