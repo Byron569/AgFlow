@@ -106,6 +106,9 @@ test('wiring: IPC, preload, modal and settings are connected end-to-end', () => 
   // 双 provider 块（local/ + ollama/）是 slug 断链的修复本体；生成逻辑已抽到共享
   // 辅助函数（domesticOpencodeProviderBlocks），产品 spawn 与真机实测脚本共用。
   assert.match(index, /domesticOpencodeProviderBlocks\(eng, baseUrl, modelSlug\)/);
+  // auto 模式必须放行 external_directory：否则内置 read/grep 碰工作目录外的路径
+  // 就弹权限询问，无人值守场景把 agent 卡死（2026-10 实测：败龙被 ask 卡住）。
+  assert.match(index, /external_directory: \{ '\*': 'allow' \}/, '外部目录权限未放行');
   const domestic = readFileSync('src/shared/domesticEngines.ts', 'utf8');
   assert.match(domestic, /const blockIds = eng\.id === 'ollama' \? \['local', 'ollama'\] : \[eng\.id\]/);
 

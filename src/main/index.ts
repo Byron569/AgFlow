@@ -3201,7 +3201,18 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     const eng = DOMESTIC_ENGINES.find((e) => e.id === provider);
     if (provider === 'opencode' || (eng && eng.shell === 'opencode')) {
       const oc: Record<string, unknown> = { autoupdate: false };
-      if (cfg.autoMode) oc.permission = { edit: 'allow', bash: 'allow', webfetch: 'allow' };
+      // auto 模式：连 external_directory 一并放行。否则内置 read/grep 工具一旦碰
+      // 工作目录之外的路径就弹权限询问，无人值守的蜂巢里会把 agent 卡死在对话框上
+      //（2026-10 实测：败龙处理任务时读项目目录被 ask 卡住）。bash 早已全放行，
+      // 此键与之同级；关闭 auto 模式则整块 permission 不注入（保持询问）。
+      if (cfg.autoMode) {
+        oc.permission = {
+          edit: 'allow',
+          bash: 'allow',
+          webfetch: 'allow',
+          external_directory: { '*': 'allow' }
+        };
+      }
       // OpenCode 的两条发行线旗标不同（真机实测，2026-10）：桌面版内置 CLI（2.x）
       // 的 TUI 没有 --model（只有 run 子命令有），且不带 --standalone 时会连共享
       // 后台服务——per-agent 配置（model/theme）与插件目录全被忽略。发现后此处
