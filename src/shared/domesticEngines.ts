@@ -118,7 +118,9 @@ export function domesticOpencodeProviderBlocks(
   const blockIds = eng.id === 'ollama' ? ['local', 'ollama'] : [eng.id];
   const prefix = modelSlug.includes('/') ? modelSlug.split('/')[0].toLowerCase() : '';
   const matched = blockIds.find((b) => prefix === b && modelSlug.length > b.length + 1);
-  const inner = matched ? modelSlug.slice(matched.length + 1) : eng.models[0]?.id ?? 'default';
+  const inner = matched
+    ? modelSlug.slice(matched.length + 1)
+    : eng.models.find((m) => m.id === modelSlug)?.id ?? eng.models[0]?.id ?? 'default';
   const options: Record<string, unknown> = { baseURL: baseUrl };
   if (eng.keyEnv) options.apiKey = `{env:${eng.keyEnv}}`;
   return Object.fromEntries(blockIds.map((b) => [b, {

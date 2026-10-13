@@ -17,7 +17,8 @@
  */
 import Database from 'better-sqlite3';
 import { app } from 'electron';
-import { join } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 /** A captured user prompt, as returned to the renderer (camelCase columns). */
 export interface CommandHistoryRow {
@@ -79,6 +80,7 @@ export class PersistStore {
   open(): void {
     if (this.db) return;
     const path = this.dbPath ?? join(app.getPath('userData'), 'harness.db');
+    try { mkdirSync(dirname(path), { recursive: true }); } catch { /* best-effort */ }
     const db = new Database(path);
     db.pragma('journal_mode = WAL');
     db.pragma('synchronous = NORMAL');

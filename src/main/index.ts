@@ -3172,8 +3172,19 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     //    spawned model's provider prefix when we can identify it; fall back to all
     //    stored keys when the model/prefix is unknown (default model, qwen slugs,
     //    custom). Reduces the blast radius vs handing every CLI all keys.
+    const eng = DOMESTIC_ENGINES.find((e) => e.id === provider);
     const modelIdx = (opts.args ?? []).indexOf('--model');
-    const modelSlug = modelIdx >= 0 ? (opts.args?.[modelIdx + 1] ?? '') : '';
+    let modelSlug = modelIdx >= 0 ? (opts.args?.[modelIdx + 1] ?? '') : '';
+    if (eng) {
+      if (!modelSlug) {
+        modelSlug = `${eng.id === 'ollama' ? 'local' : eng.id}/${eng.models[0]?.id ?? 'default'}`;
+      } else if (!modelSlug.includes('/')) {
+        modelSlug = `${eng.id === 'ollama' ? 'local' : eng.id}/${modelSlug}`;
+      }
+      if (modelIdx >= 0 && opts.args) {
+        opts.args[modelIdx + 1] = modelSlug;
+      }
+    }
     const prefix = modelSlug.includes('/') ? modelSlug.split('/')[0].toLowerCase() : '';
     const PREFIX_BACKEND: Record<string, string> = {
       anthropic: 'anthropic', openai: 'openai', google: 'google', gemini: 'google', groq: 'groq', openrouter: 'openrouter',
@@ -3198,7 +3209,6 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
     //    The 国产 engines (doubao/glm/ollama) ride the same shell — their provider
     //    block is generated from the registry so `--model doubao/<id>` etc.
     //    resolves against the right endpoint.
-    const eng = DOMESTIC_ENGINES.find((e) => e.id === provider);
     if (provider === 'opencode' || (eng && eng.shell === 'opencode')) {
       const oc: Record<string, unknown> = { autoupdate: false };
       // auto 模式：连 external_directory 一并放行。否则内置 read/grep 工具一旦碰
@@ -3216,14 +3226,19 @@ async function spawnAgentCore(opts: AgentSpawnOptions, owner: Electron.WebConten
       // OpenCode 的两条发行线旗标不同（真机实测，2026-10）：桌面版内置 CLI（2.x）
       // 的 TUI 没有 --model（只有 run 子命令有），且不带 --standalone 时会连共享
       // 后台服务——per-agent 配置（model/theme）与插件目录全被忽略。发现后此处
-      // 自适应：摘掉 argv 的 --model 改注 config 的 model 键，并补 --standalone。
+      // 自适应：摘掉 argv 的 --model 改注 config 的 model键，并补 --standalone。
       // npm opencode-ai（1.x）探测为「有 --model」，原样不动。（profile 在 ensureAgent
       // 之前已探测一次，此处复用。）
       const adapted = adaptOpencodeArgs(opts.args ?? [], opencodeProfile);
       if (adapted.model) {
-        oc.model = adapted.model;
+        oc.model = adapted.model.includes('/') || !eng ? adapted.model : `${eng.id === 'ollama' ? 'local' : eng.id}/${adapted.model}`;
         opts.args = adapted.args;
         console.log(`[opencode] v2 CLI: --model 改注 config（${adapted.model}），argv 补 --standalone`);
+      } else if (eng && !opencodeProfile?.tuiModelFlag) {
+        oc.model = modelSlug;
+        opts.args = adapted.args;
+      } else if (eng && opencodeProfile?.tuiModelFlag && !(opts.args ?? []).includes('--model')) {
+        opts.args = ['--model', modelSlug, ...(opts.args ?? [])];
       } else if (opencodeV2 && adapted.args.join(' ') !== (opts.args ?? []).join(' ')) {
         opts.args = adapted.args; // 无模型也要 --standalone（隔离 per-agent 配置与插件）
       }
@@ -5651,13 +5666,15 @@ app.whenReady().then(() => {
   // 有任何终端在跑，直接复用与设置页手动入口同一套收口（改名 + 文本迁移，带备份）。
   // 失败只记日志，绝不阻塞启动。
   try {
-    const res = cleanupLegacyNames(hive.root(), renameLegacyGod);
-    if (res.godRenamed || (res.filesChanged ?? 0) > 0) {
-      console.log(
-        `[hive] legacy name cleanup: godRenamed=${!!res.godRenamed} files=${res.filesChanged ?? 0} hits=${res.totalReplaced ?? 0}`
-      );
+    if (hive.root()) {
+      const res = cleanupLegacyNames(hive.root(), renameLegacyGod);
+      if (res.godRenamed || (res.filesChanged ?? 0) > 0) {
+        console.log(
+          `[hive] legacy name cleanup: godRenamed=${!!res.godRenamed} files=${res.filesChanged ?? 0} hits=${res.totalReplaced ?? 0}`
+        );
+      }
+      if (!res.ok) console.error('[hive] legacy name cleanup failed:', res.error);
     }
-    if (!res.ok) console.error('[hive] legacy name cleanup failed:', res.error);
   } catch (e) {
     console.error('[hive] legacy name cleanup threw:', e);
   }

@@ -246,9 +246,8 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     canReceiveInbox: true,
     initialPromptFlag: undefined,
     positionalInitialPrompt: true,
-    // Codex's long-context coding model for the orchestrator role. // TODO-verify
-    // the exact codex CLI model id (couldn't install the codex CLI to confirm).
-    recommendedOrchestratorModel: 'gpt-5-codex',
+    // Codex's long-context coding model for the orchestrator role.
+    recommendedOrchestratorModel: 'gpt-6-astra',
     // Codex resumes via a SUBCOMMAND, not a flag: `codex resume [OPTIONS]
     // [SESSION_ID]`. A `--resume <id>` flag does not exist, which is why restarts
     // used to silently start a brand-new session instead of continuing.
@@ -602,7 +601,7 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     bridge: { kind: 'hooks', shim: 'opencode' },
     canReceiveInbox: true,
     initialPromptFlag: '--prompt',
-    recommendedOrchestratorModel: 'doubao-seed-2.1-pro',
+    recommendedOrchestratorModel: 'doubao/doubao-seed-2.1-pro',
     resumeFlag: undefined,
     installCommand: 'npm install -g opencode-ai@latest', // the shell
     docsUrl: 'https://www.volcengine.com/product/ark'
@@ -630,7 +629,7 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     bridge: { kind: 'hooks', shim: 'opencode' },
     canReceiveInbox: true,
     initialPromptFlag: '--prompt',
-    recommendedOrchestratorModel: 'deepseek-v4-pro',
+    recommendedOrchestratorModel: 'deepseek/deepseek-v4-pro',
     resumeFlag: undefined,
     installCommand: 'npm install -g opencode-ai@latest', // the shell
     docsUrl: 'https://github.com/deepseek-ai/deepseek-harness'
@@ -650,7 +649,7 @@ export const AGENT_PROVIDER_PRESETS: AgentProviderPreset[] = [
     bridge: { kind: 'hooks', shim: 'opencode' },
     canReceiveInbox: true,
     initialPromptFlag: '--prompt',
-    recommendedOrchestratorModel: 'glm-5.3',
+    recommendedOrchestratorModel: 'glm/glm-5.3',
     resumeFlag: undefined,
     installCommand: 'npm install -g opencode-ai@latest', // the shell
     docsUrl: 'https://open.bigmodel.cn'
