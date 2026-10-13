@@ -20,6 +20,8 @@ import {
   OSS_BLOG_LINKS
 } from '@shared/ossModels';
 import type { OllamaModelInfo } from '@shared/ollamaScan';
+import { classifyEngineAvailability, engineAvailabilityBadge, sortProvidersByAvailability } from '@shared/engineAvailability';
+import type { ToolStatus } from '@shared/toolCatalog';
 import {
   type AgentProvider,
   type HarnessConfig,
@@ -80,7 +82,7 @@ const HIRE_PROMPT = `你要设计一份「雇佣清单」（hire）——为 AgF
 }
 
 规则：
-- "provider" 必须是以下之一：claude | antigravity | codex | cursor | qwen | doubao | kimi | deepseek | glm | traecli | codebuddy | zcode。"model" 必须是该 provider 的真实模型 id（例如 claude-opus-4-8[1m]、gpt-5-codex、"Gemini 3.1 Pro (High)"、qwen3-coder-plus、doubao-seed-2.1-pro、kimi-for-coding、deepseek-v4-pro、glm-5.3）。
+- "provider" 必须是以下之一：claude | antigravity | codex | cursor | qwen | doubao | kimi | deepseek | glm | traecli | codebuddy | zcode。"model" 必须是该 provider 的真实模型 id（例如 claude-opus-4-8[1m]、gpt-6-astra、"Gemini 3.1 Pro (High)"、qwen3-coder-plus、doubao/doubao-seed-2.1-pro、kimi-code/kimi-for-coding、deepseek/deepseek-v4-pro、glm/glm-5.3）。
 - 不要包含 shell 命令，也不要在这几个字段之外添加任何 flag。
 - 让 "description" 和 "goal" 具体到智能体第一轮就知道自己该做什么。
 
@@ -225,6 +227,16 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
   // quick-pick immediately (the `config` prop is a snapshot taken at open time).
   const [repos, setRepos] = useState<string[]>(config.registeredRepos);
   const [provider, setProvider] = useState<AgentProvider>(pendingHire?.provider ?? initialProvider);
+  /** 引擎可用性（tools:status 探测，与向导同一机制）：chips 按「已装 → 首次自动装 →
+   *  未装」排序，未就绪的挂徽标——避免选了拉不起来的引擎才发现（2026-10 反馈）。 */
+  const [engineStatuses, setEngineStatuses] = useState<ToolStatus[] | undefined>();
+  useEffect(() => {
+    let alive = true;
+    window.cth.toolsStatus()
+      .then((s) => { if (alive) setEngineStatuses(s); })
+      .catch(() => { /* 探测失败：保持原序、不标徽标 */ });
+    return () => { alive = false; };
+  }, []);
   const [model, setModel] = useState<string | undefined>(
     pendingHire ? pendingHire.model : initialModel
   );
@@ -980,8 +992,12 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                   <>
                     <Row label={tr('addAgent.provider')}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {AGENT_PROVIDER_PRESETS.map((p) => {
+                        {sortProvidersByAvailability(engineStatuses, AGENT_PROVIDER_PRESETS).map((p) => {
                           const active = provider === p.id;
+                          const avail = classifyEngineAvailability(engineStatuses, p.id);
+                          const badge = engineAvailabilityBadge(avail);
+                          // 未就绪（首次自动装 / 未装）才挂徽标；已装的保持干净。
+                          const pending = avail.state === 'installs-on-first-run' || avail.state === 'not-installable';
                           return (
                             <button
                               key={p.id}
@@ -1003,11 +1019,21 @@ export function AddAgentModal({ onClose, config, onConfigChange }: AddAgentModal
                                   : 'inset 0 0 0 1px var(--cth-ink-100)',
                                 fontFamily: 'var(--cth-font-ui)', fontSize: 12,
                                 color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none',
-                                display: 'inline-flex', alignItems: 'center', gap: 6
+                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                opacity: avail.state === 'not-installable' ? 0.6 : 1
                               }}
                             >
                               <ProviderLogo provider={p.id} size={14} />
                               {p.label}
+                              {pending && badge && (
+                                <span style={{
+                                  fontSize: 9, lineHeight: '14px', padding: '0 4px',
+                                  fontFamily: 'var(--cth-font-display)',
+                                  color: avail.state === 'not-installable' ? 'var(--cth-ink-500)' : 'var(--cth-ink-700)',
+                                  background: avail.state === 'not-installable' ? 'var(--cth-paper-100)' : 'var(--cth-cream-200)',
+                                  boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+                                }}>{badge}</span>
+                              )}
                             </button>
                           );
                         })}

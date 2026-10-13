@@ -2,14 +2,19 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const loadTs = require('./load-ts.cjs');
+
+const readSrc = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 
 const {
   classifyEngineAvailability,
   engineBlocksOnboarding,
   engineAvailabilityBadge,
   engineAvailabilityMessage,
-  pickDefaultEngine
+  pickDefaultEngine,
+  sortProvidersByAvailability
 } = loadTs('src/shared/engineAvailability.ts');
 const { toolCatalog } = loadTs('src/shared/toolCatalog.ts');
 const { AGENT_PROVIDER_PRESETS, canReceiveInbox } = loadTs('src/shared/agentProvider.ts');
@@ -86,4 +91,36 @@ test('only the dead end has a message', () => {
   const s = statusesFor(['claude']);
   assert.equal(engineAvailabilityMessage(classifyEngineAvailability(s, 'claude'), 'Claude Code'), null);
   assert.equal(engineAvailabilityMessage(classifyEngineAvailability(s, 'codex'), 'Codex'), null);
+});
+
+// --- 2026-10：引擎选择器接入本机可用性（排序 + 徽标）------------------------
+
+test('sortProvidersByAvailability keeps installed first, unprobed order intact', () => {
+  const s = statusesFor(['opencode', 'claude']);
+  const rows = [{ id: 'grok' }, { id: 'claude' }, { id: 'codex' }, { id: 'opencode' }];
+  // 已装（claude/opencode 同档保持原序）→ 首次自动装（codex）→ 未装（grok）。
+  assert.deepEqual(
+    sortProvidersByAvailability(s, rows).map((p) => p.id),
+    ['claude', 'opencode', 'codex', 'grok']
+  );
+  // 探测未跑 → 原样，不猜。
+  assert.deepEqual(
+    sortProvidersByAvailability(undefined, rows).map((p) => p.id),
+    ['grok', 'claude', 'codex', 'opencode']
+  );
+  // 不改动传入数组。
+  const input = [{ id: 'grok' }, { id: 'claude' }];
+  sortProvidersByAvailability(s, input);
+  assert.deepEqual(input.map((p) => p.id), ['grok', 'claude']);
+});
+
+test('engine pickers order and badge by machine availability', () => {
+  const add = readSrc('src/renderer/src/components/AddAgentModal.tsx');
+  assert.match(add, /sortProvidersByAvailability/, '添加对话框未按可用性排序');
+  assert.match(add, /engineAvailabilityBadge/, '添加对话框未显示可用性徽标');
+  const edit = readSrc('src/renderer/src/components/EditAgentModal.tsx');
+  assert.match(edit, /sortProvidersByAvailability/, '编辑弹窗未按可用性排序');
+  assert.match(edit, /engineAvailabilityBadge/, '编辑弹窗未显示可用性徽标');
+  const modal = readSrc('src/renderer/src/components/SettingsModal.tsx');
+  assert.match(modal, /engineAvailabilityBadge/, '设置页引擎行未显示可用性徽标');
 });

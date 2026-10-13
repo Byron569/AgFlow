@@ -16,6 +16,8 @@ import {
   providerPreset,
   isClaudeProvider
 } from '@/store/config';
+import { classifyEngineAvailability, engineAvailabilityBadge, sortProvidersByAvailability } from '@shared/engineAvailability';
+import type { ToolStatus } from '@shared/toolCatalog';
 
 const ACCENTS: AccentColorName[] = ['coral', 'mint', 'sky', 'lemon', 'lilac', 'peach'];
 
@@ -39,6 +41,15 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
   const [provider, setProvider] = useState<AgentProvider>(
     inferAgentProvider(agent.command, agent.provider)
   );
+  /** 引擎可用性排序/徽标（与添加对话框、向导同一机制）。 */
+  const [engineStatuses, setEngineStatuses] = useState<ToolStatus[] | undefined>();
+  useEffect(() => {
+    let alive = true;
+    window.cth.toolsStatus()
+      .then((s) => { if (alive) setEngineStatuses(s); })
+      .catch(() => { /* 探测失败：保持原序、不标徽标 */ });
+    return () => { alive = false; };
+  }, []);
   const [model, setModel] = useState<string | undefined>(agent.model);
   const [description, setDescription] = useState(agent.description);
   const [goal, setGoal] = useState(agent.goal ?? '');
@@ -189,8 +200,11 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
             <Section label="引擎" hint="提供商 · 模型 · 下次重启生效">
               <Row label="提供商">
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {AGENT_PROVIDER_PRESETS.map((p) => {
+                  {sortProvidersByAvailability(engineStatuses, AGENT_PROVIDER_PRESETS).map((p) => {
                     const active = provider === p.id;
+                    const avail = classifyEngineAvailability(engineStatuses, p.id);
+                    const badge = engineAvailabilityBadge(avail);
+                    const pending = avail.state === 'installs-on-first-run' || avail.state === 'not-installable';
                     return (
                       <button
                         key={p.id}
@@ -205,11 +219,21 @@ export function EditAgentModal({ agent, onClose }: EditAgentModalProps) {
                             : 'inset 0 0 0 1px var(--cth-ink-100)',
                           fontFamily: 'var(--cth-font-ui)', fontSize: 12,
                           color: 'var(--cth-ink-900)', cursor: 'pointer', border: 'none',
-                          display: 'inline-flex', alignItems: 'center', gap: 6
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
+                          opacity: avail.state === 'not-installable' ? 0.6 : 1
                         }}
                       >
                         <ProviderLogo provider={p.id} size={14} />
                         {p.label}
+                        {pending && badge && (
+                          <span style={{
+                            fontSize: 9, lineHeight: '14px', padding: '0 4px',
+                            fontFamily: 'var(--cth-font-display)',
+                            color: avail.state === 'not-installable' ? 'var(--cth-ink-500)' : 'var(--cth-ink-700)',
+                            background: avail.state === 'not-installable' ? 'var(--cth-paper-100)' : 'var(--cth-cream-200)',
+                            boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+                          }}>{badge}</span>
+                        )}
                       </button>
                     );
                   })}

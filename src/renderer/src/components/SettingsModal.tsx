@@ -2,6 +2,8 @@ import { useState, useEffect, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { agentModels, modelsForProvider, type HarnessConfig } from '@/store/config';
 import { providerPreset, type AgentProvider } from '@shared/agentProvider';
+import { classifyEngineAvailability, engineAvailabilityBadge } from '@shared/engineAvailability';
+import type { ToolStatus } from '@shared/toolCatalog';
 import { useStore } from '@/store/store';
 import {
   CLONE_NODE_BLURB,
@@ -322,6 +324,15 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
     setEngineModelSel(next);
     stage({ providerDefaultModels: next } as Partial<HarnessConfig>);
   };
+  /** 引擎可用性（tools:status）：引擎行挂「未安装 / 首次自动装」徽标，如实反映本机。 */
+  const [engineStatuses, setEngineStatuses] = useState<ToolStatus[] | undefined>();
+  useEffect(() => {
+    let alive = true;
+    window.cth.toolsStatus()
+      .then((s) => { if (alive) setEngineStatuses(s); })
+      .catch(() => { /* 探测失败：不标徽标 */ });
+    return () => { alive = false; };
+  }, []);
   const [maxTurnsVal, setMaxTurnsVal] = useState<string>(cfgX.maxTurns != null ? String(cfgX.maxTurns) : '');
   const maxTurnsPatch = (): Partial<HarnessConfig> => {
     const n = maxTurnsVal.trim() === '' ? undefined : Number(maxTurnsVal);
@@ -1226,12 +1237,36 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                           </span>
                           {ENGINE_DEFAULT_ROWS.map((id) => {
                             const sel = engineModelSel[id];
+                            const avail = classifyEngineAvailability(engineStatuses, id);
+                            const badge = engineAvailabilityBadge(avail);
+                            const pending = avail.state === 'installs-on-first-run' || avail.state === 'not-installable';
                             return (
                               <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cth-ink-700)' }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cth-ink-700)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                                   {providerPreset(id).label}
+                                  {pending && badge && (
+                                    <span style={{
+                                      fontSize: 9, lineHeight: '14px', padding: '0 4px',
+                                      fontFamily: 'var(--cth-font-display)',
+                                      color: avail.state === 'not-installable' ? 'var(--cth-ink-500)' : 'var(--cth-ink-700)',
+                                      background: avail.state === 'not-installable' ? 'var(--cth-paper-100)' : 'var(--cth-cream-200)',
+                                      boxShadow: 'inset 0 0 0 1px var(--cth-ink-300)'
+                                    }}>{badge}</span>
+                                  )}
                                 </span>
                                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  {!modelsForProvider(id).some((m) => !m.id) && (
+                                    <button
+                                      key="__cli_default__"
+                                      onClick={() => saveEngineModel(id, undefined)}
+                                      style={{
+                                        padding: '3px 8px 1px', border: 'none', cursor: 'pointer',
+                                        fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)',
+                                        background: !sel ? 'var(--cth-sky-light)' : 'var(--cth-cream-100)',
+                                        boxShadow: !sel ? 'inset 0 0 0 1.5px var(--cth-ink-500)' : 'inset 0 0 0 1px var(--cth-ink-100)'
+                                      }}
+                                    >{t('settings.agentsModels.cliDefaultChip')}</button>
+                                  )}
                                   {modelsForProvider(id).map((m) => {
                                     const active = m.id ? sel === m.id : !sel;
                                     return (

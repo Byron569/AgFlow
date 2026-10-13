@@ -92,6 +92,20 @@ export function engineAvailabilityBadge(a: EngineAvailability): string | null {
   }
 }
 
+/** 引擎选择器的稳定顺序：本机已装 → 首次运行自动装 → 其余，同档保持原顺序。
+ *  探测未跑（undefined）时全部 unknown，顺序原样（不猜）。用于 Add / Edit 智能体
+ *  的引擎 chips——「还不能用的沉底」，避免选了才在终端里发现拉不起来（2026-10 反馈）。 */
+export function sortProvidersByAvailability<T extends { id: AgentProvider }>(
+  statuses: readonly ToolStatus[] | undefined,
+  providers: readonly T[]
+): T[] {
+  const rank = (p: T): number => {
+    const st = classifyEngineAvailability(statuses, p.id).state;
+    return st === 'installed' ? 0 : st === 'installs-on-first-run' ? 1 : 2;
+  };
+  return [...providers].sort((a, b) => rank(a) - rank(b));
+}
+
 /** The explanation shown under the picker when the selected engine cannot boot.
  *  Written for someone who does not know what a CLI engine is: what happened,
  *  then what to do next. 中文（P0-B）；刻意不提总控名，避免写死称呼。 */
