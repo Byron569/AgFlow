@@ -14,8 +14,11 @@ import { useStore } from '@/store/store';
  *  - API keys → WRITE-ONLY in the secret broker (`providerKey:*` IPC). Keyed by the
  *    BACKEND model-provider (anthropic/openai/…). The field shows only set/not-set;
  *    the plaintext is never read back to the renderer (materialized MAIN-only at spawn).
- *  - Local base-URL + default model → HarnessConfig (`providerBaseUrls` /
- *    `providerDefaultModels`), keyed by CLI provider. Non-secret; normal config save.
+ *  - Local base-URL → HarnessConfig (`providerBaseUrls`), keyed by CLI provider.
+ *    Non-secret; normal config save.
+ * 2026-10 改版：按引擎的默认模型（providerDefaultModels）从这里移到了
+ * Settings →「智能体与模型」顶部的「各引擎默认模型」区，走单保存（stage）约定；
+ * 此页只剩端点覆盖。
  * See hive/shared/cli-agents/settings-ui-schema.md.
  */
 
@@ -83,12 +86,9 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
   const [hasKey, setHasKey] = useState<Record<string, boolean>>({});
   const [draftKey, setDraftKey] = useState<Record<string, string>>({});
   const [note, setNote] = useState<Record<string, string>>({});
-  // Base-URL + default-model drafts, seeded from config.
+  // Base-URL draft, seeded from config. 默认模型已上移（见文件头），这里只剩端点覆盖。
   const [baseUrls, setBaseUrls] = useState<Partial<Record<AgentProvider, string>>>(
     config.providerBaseUrls ?? {}
-  );
-  const [models, setModels] = useState<Partial<Record<AgentProvider, string>>>(
-    config.providerDefaultModels ?? {}
   );
 
   // Reseed set/not-set flags on mount (write-only — only the boolean is fetched).
@@ -133,11 +133,6 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
     setBaseUrls(next);
     try { await window.cth.updateConfig({ providerBaseUrls: next }); } catch { /* noop */ }
   };
-  const saveModel = async (id: AgentProvider, value: string) => {
-    const next = { ...models, [id]: value.trim() || undefined };
-    setModels(next);
-    try { await window.cth.updateConfig({ providerDefaultModels: next }); } catch { /* noop */ }
-  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -175,7 +170,7 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
         ))}
       </div>
 
-      {/* Per-CLI local endpoint + default model */}
+      {/* Per-CLI local endpoint（仅 base-URL 覆盖；默认模型已上移到「智能体与模型」顶部） */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={headStyle}>{t('aiEngines.localEndpoint')}</div>
         {CLIS.map((c) => (
@@ -183,20 +178,12 @@ export function AiEnginesSettings({ config }: { config: HarnessConfig }) {
             <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: 6 }}>
               <ProviderLogo provider={c.id} size={12} /> {c.label}
             </label>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input
-                placeholder={`base-URL — ${c.hint}`}
-                defaultValue={baseUrls[c.id] ?? ''}
-                onBlur={(e) => saveBaseUrl(c.id, e.target.value)}
-                style={inputStyle}
-              />
-              <input
-                placeholder={t('aiEngines.defaultModelPlaceholder')}
-                defaultValue={models[c.id] ?? ''}
-                onBlur={(e) => saveModel(c.id, e.target.value)}
-                style={{ ...inputStyle, maxWidth: 220 }}
-              />
-            </div>
+            <input
+              placeholder={`base-URL — ${c.hint}`}
+              defaultValue={baseUrls[c.id] ?? ''}
+              onBlur={(e) => saveBaseUrl(c.id, e.target.value)}
+              style={inputStyle}
+            />
           </div>
         ))}
         {/* Local-setup guides (ondev-c part-3) — link the two how-to blogs. */}

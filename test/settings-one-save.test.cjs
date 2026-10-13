@@ -76,6 +76,17 @@ test('Free Flow still saves immediately: it arms a global hotkey', () => {
   assert.match(MODAL, /window\.cth\.freeflowSetConfig\(/, 'freeflow no longer persists on its own');
 });
 
+// --- 2026-10: per-engine default models moved to the top of Agents & Models ---
+
+test('per-engine default models stage instead of writing, and CLI-default clears', () => {
+  assert.match(MODAL, /ENGINE_DEFAULT_ROWS/, 'the engine list is gone');
+  assert.match(MODAL, /stage\(\{ providerDefaultModels: next \}/,
+    'engine defaults must go through stage (single-save rule)');
+  const engines = read('src/renderer/src/components/AiEnginesSettings.tsx');
+  assert.doesNotMatch(engines, /updateConfig\(\{ providerDefaultModels/,
+    'the old immediate-write default-model field is back');
+});
+
 // --- A2: Connections tidying -------------------------------------------------
 
 test('the section heading is defined once, not written out seventeen times', () => {

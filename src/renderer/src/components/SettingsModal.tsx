@@ -1,6 +1,7 @@
 import { useState, useEffect, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { agentModels, type HarnessConfig } from '@/store/config';
+import { agentModels, modelsForProvider, type HarnessConfig } from '@/store/config';
+import { providerPreset, type AgentProvider } from '@shared/agentProvider';
 import { useStore } from '@/store/store';
 import {
   CLONE_NODE_BLURB,
@@ -35,6 +36,14 @@ import {
 import { notifyArabicTerminalChangeAll } from '@/components/terminalPool';
 import { isComposingKey } from '@shared/imeGuard';
 import { LANGUAGES } from '@/i18n';
+
+/** 「各引擎默认模型」区块的引擎清单（与下方「AI 引擎密钥 / 本地端点」区同序）：
+ *  这些引擎支持按引擎设定新智能体的默认模型（写入 providerDefaultModels），
+ *  选「CLI 默认」即清除覆盖。Claude 系走上方「默认智能体模型」（config.defaultModel），
+ *  不在此列。 */
+const ENGINE_DEFAULT_ROWS: AgentProvider[] = [
+  'opencode', 'crush', 'pi', 'qwen', 'kimi', 'doubao', 'glm', 'deepseek', 'ollama'
+];
 
 export interface SettingsModalProps {
   config: HarnessConfig;
@@ -301,6 +310,17 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
   const saveDefaultModel = (id: string): void => {
     setDefaultModelSel(id);
     stage({ defaultModel: id } as Partial<HarnessConfig>);
+  };
+  /** 各引擎的默认模型（走单保存约定：本地镜像 + stage，footer 统一提交）。
+   *  点「CLI 默认」= 清除该引擎的覆盖，回到引擎自身默认。 */
+  const [engineModelSel, setEngineModelSel] = useState<Partial<Record<AgentProvider, string>>>(
+    cfgX.providerDefaultModels ?? {}
+  );
+  const saveEngineModel = (id: AgentProvider, modelId?: string): void => {
+    const next = { ...engineModelSel };
+    if (modelId) next[id] = modelId; else delete next[id];
+    setEngineModelSel(next);
+    stage({ providerDefaultModels: next } as Partial<HarnessConfig>);
   };
   const [maxTurnsVal, setMaxTurnsVal] = useState<string>(cfgX.maxTurns != null ? String(cfgX.maxTurns) : '');
   const maxTurnsPatch = (): Partial<HarnessConfig> => {
@@ -1173,7 +1193,7 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                           <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
-                            {t('settings.agentsModels.defaultModelDesc', { godName })}
+                            {t('settings.agentsModels.defaultModelDesc')}
                           </span>
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             {agentModels().map((m) => (
@@ -1189,6 +1209,48 @@ export function SettingsModal({ config, onClose, initialSection }: SettingsModal
                               >{m.label}</button>
                             ))}
                           </div>
+                        </div>
+                      </div>
+
+                      <div style={{ height: 1, background: 'var(--cth-ink-300)' }} />
+
+                      {/* 各引擎默认模型（P1 反馈改版）：国产 / BYOK 引擎的默认模型
+                          原藏在「本地端点」区，这里提升到明面，与 Claude 默认并列。 */}
+                      <div>
+                        <div style={sectionHead}>
+                          {t('settings.agentsModels.engineDefaults')}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          <span style={{ fontSize: 12, lineHeight: '16px', color: 'var(--cth-ink-500)' }}>
+                            {t('settings.agentsModels.engineDefaultsDesc')}
+                          </span>
+                          {ENGINE_DEFAULT_ROWS.map((id) => {
+                            const sel = engineModelSel[id];
+                            return (
+                              <div key={id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cth-ink-700)' }}>
+                                  {providerPreset(id).label}
+                                </span>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  {modelsForProvider(id).map((m) => {
+                                    const active = m.id ? sel === m.id : !sel;
+                                    return (
+                                      <button
+                                        key={m.label}
+                                        onClick={() => saveEngineModel(id, m.id)}
+                                        style={{
+                                          padding: '3px 8px 1px', border: 'none', cursor: 'pointer',
+                                          fontFamily: 'var(--cth-font-ui)', fontSize: 12, color: 'var(--cth-ink-900)',
+                                          background: active ? 'var(--cth-sky-light)' : 'var(--cth-cream-100)',
+                                          boxShadow: active ? 'inset 0 0 0 1.5px var(--cth-ink-500)' : 'inset 0 0 0 1px var(--cth-ink-100)'
+                                        }}
+                                      >{m.id ? m.label : t('settings.agentsModels.cliDefaultChip')}</button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 
